@@ -1,0 +1,211 @@
+select username from dba_users;
+create user capgemini identified by cap123;
+grant all privileges to capgemini;
+connect capgemini/cap123
+select * from tab;
+create table employee( id number(5) primary key, name varchar(20),
+desig varchar(20), mobile number(12));
+desc employee;
+insert into employee values(1234, 'Mayank','Developer',9012341234);
+select * from employee;
+insert into employee values(2234, 'Kavya','Tester',9010001234);
+commit; // else other clients cannot see the inserted data
+column name format a12   // only for display on sqlplus client
+column id format 9999   
+cl scr // for clearing screen
+use arrow up down, or F7 for history
+set linesize 150 // left to right length of display
+set pagesize 20 // how many lines to display
+select * from employee order by name;
+
+Each row of the table represents a record
+Each column is an attribute of a record
+
+select * from employee where id=1234;
+
+update employee set mobile=9012341230 where id=1234;
+commit;
+delete from employee where id=3334;
+rollback; // commit is cancelled - should be done before commit
+Transaction is a complete process, for example a money transfer
+   - either everything happens, or nothing happens
+
+CRUD operation : Create, Read, Update, Delete
+
+alter table employee add (doj date default sysdate not null);
+update employee set doj='05-mar-2019' where id=2234;
+
+ create table dept (id number(5), name varchar(20), location varchar(20));
+drop table dept;
+insert into dept(id,name,location) values(1144,'HR','Delhi');
+insert into dept(id,name,location) values(3344,'IT','Bangalore');
+
+alter table dept add constraint d_pk_id primary key(id);
+alter table employee add constraint e_d_fk foreign key(dept) references dept(id);
+update employee set dept=1144 where id=1234;
+
+Find the location name of emp id 1234
+   select location from dept where id=(select dept from employee where id=1234);
+
+NAME         MOBILE        DEPT                 LOCATION
+------------     ----------       --------------------    -----------
+Mayank       9012341230   HR                    Delhi
+Kavya          9010001234    IT                    Bangalore
+Srishti          9010880994    IT                    Bangalore
+
+select e.name, e.mobile, d.name as DEPT, d.location from employee e, dept d where e.dept=d.id;
+
+show user; // who am i
+
+select name from dba_services;
+select value from v$parameter where name='service_names';
+cl scr // clear screen
+
+alter table employee rename column name to ename;
+
+create table department as select id, name from dept;
+alter table department add primary key(id);
+alter table employee drop constraint e_d_fk;
+alter table employee add constraint e_d_fk foreign key(dept) references department(id);
+alter table department add location number(5);
+create table location (id number(5) primary key, name varchar(25), city varchar(20),
+allowance number(6));
+insert into location values(8009, 'IT Center','Bangalore',4000);
+insert into location values(8022, 'Admin Office','Delhi',4500);
+insert into location values(8332, 'The Trade','Mumbai',4300);
+alter table department add constraint loc_fk foreign key(location)
+references location(id);
+update department set location=8009 where id=3344;
+insert into employee values(6622,'Shivam','Manager',901002003, '23-JAN-2021',2255);
+alter table employee add salary number(6);
+update employee set salary=35000 where id=1234;
+update employee set salary=35500 where id=2234;
+ update employee set salary=40000 where id=6622;
+update employee set salary=32000 where id=3334;
+update employee set salary=36000 where id=5533;
+select min(salary) from employee;
+
+set serveroutput on;
+
+PL/SQL
+-----------
+increment salary of employee having minimum salary among all.
+
+DECLARE
+   minSal number;
+   idEmp number;
+BEGIN
+  SELECT min(salary) INTO minSal FROM employee;
+  SELECT id INTO idEmp FROM employee where salary =minSal;
+   DBMS_OUTPUT.PUT_LINE('id: ' || idEmp);
+  UPDATE employee SET salary = salary+salary*0.1 WHERE id=idEmp;
+END;
+/
+
+Nested query:
+select allowance from location where id=(
+select location from department where id=(
+select dept from employee where id=6622));
+
+
+Stored Procedure
+-----------------------
+CREATE OR REPLACE PROCEDURE get_allowance (
+eid IN number, allow OUT number, msg OUT varchar )
+AS
+ did number(5);
+ locid number(5);
+BEGIN
+  msg := 'noerror';
+  select dept into did from employee where id=eid;
+  select location into locid from department where id=did;
+  select allowance into allow from location where id=locid;
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN
+   msg := 'No Data found for id ' || eid;
+END;
+/
+
+
+show errors;
+
+Test the procedure
+-----------------------------
+DECLARE
+x number:=6620;
+y number;
+z varchar(30);
+BEGIN
+  get_allowance(x,y,z);
+ IF z='noerror' THEN
+   DBMS_OUTPUT.PUT_LINE(x || ' gets ' || y || ' allowance');
+ ELSE
+  DBMS_OUTPUT.PUT_LINE(z);
+ END IF;
+END;
+/
+
+
+Stored function
+---------------------
+CREATE OR REPLACE FUNCTION get_city(
+ eid number)
+  return varchar
+AS
+  ecity varchar(20);
+  did number(5);
+  locid number(5);
+BEGIN
+  select dept into did from employee where id=eid;
+  select location into locid from department where id=did;
+  select city into ecity from location where id=locid;
+  return ecity;
+END;
+/
+
+Testing:
+  
+DECLARE
+eid number:=6622;
+ecity varchar(30);
+BEGIN
+  ecity := get_city(eid);
+   DBMS_OUTPUT.PUT_LINE( ' Employee with ID ' || eid || ' lives in ' || ecity);
+END;
+/
+
+
+
+pl/sql for multiple rows updation
+-----------------------------------------
+DECLARE
+   minSal number;
+  CURSOR cur_emp
+   IS
+     SELECT * FROM employee;
+     rec_emp cur_emp%ROWTYPE;
+BEGIN
+  SELECT min(salary) INTO minSal FROM employee;
+  OPEN cur_emp;
+  LOOP
+    FETCH cur_emp INTO rec_emp;
+    EXIT WHEN cur_emp%NOTFOUND;
+    IF rec_emp.salary=minSal THEN
+       UPDATE employee set salary=salary+salary*0.1 
+         WHERE id=rec_emp.id;
+   END IF;
+ END LOOP;
+ CLOSE cur_emp;
+END;
+/
+select * from employee;
+
+JDBC
+CallableStatement
+with IN params set and OUT params register for Procedure
+
+For function, all params set, ResultSet after ExecuteQuery. Call next and get values
+
+
+
+
